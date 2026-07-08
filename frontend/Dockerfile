@@ -10,7 +10,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-RUN npm run build
+RUN mkdir -p public && npm run build
 
 FROM base AS runner
 ENV NODE_ENV=production
@@ -20,4 +20,4 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["npx", "next", "start", "--port", "3000"]
