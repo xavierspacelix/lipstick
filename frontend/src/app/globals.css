@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #fbf3ef;
+  --surface: #ffffff;
+  --surface-muted: #f3e7e2;
+  --ink: #2b1b21;
+  --ink-muted: #6e5a61;
+
+  --primary: #8c2f45;
+  --primary-foreground: #fbf3ef;
+  --accent: #c9a46a;
+  --accent-foreground: #2b1b21;
+
+  --border: #e6d5ce;
+  --border-glass: rgba(255, 255, 255, 0.5);
+  --focus-ring: #8c2f45;
+
+  --success: #5b7a5a;
+  --warning: #b8823e;
+  --error: #b23b4d;
+
+  --lip-type-pinkish: #e1849c;
+  --lip-type-brownish: #9c6b4f;
+  --lip-type-dark: #4a1f2b;
+
+  --radius-sm: 6px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 999px;
+
+  --shadow-glass: 0 8px 32px rgba(43, 27, 33, 0.06), 0 1px 4px rgba(43, 27, 33, 0.04);
+  --shadow-glass-lg: 0 24px 64px rgba(43, 27, 33, 0.08), 0 2px 8px rgba(43, 27, 33, 0.04);
+  --shadow-sm: 0 1px 2px rgba(43, 27, 33, 0.06);
+  --shadow-md: 0 4px 16px rgba(43, 27, 33, 0.08);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-base: 220ms;
+  --duration-slow: 400ms;
+
+  --text-display-xl: 56px;
+  --text-display-lg: 36px;
+  --text-display-md: 24px;
+  --text-body-lg: 18px;
+  --text-body-md: 15px;
+  --text-body-sm: 13px;
+  --text-data-md: 15px;
+  --text-data-sm: 12px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139, 47, 69, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(201, 164, 106, 0.03) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle noise texture overlay */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: multiply;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-ink font-sans antialiased relative;
+  }
+}

@@ -1,0 +1,41 @@
+services:
+  # FAST API BACKEND
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      ai-service:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - traefik-public
+  # AI SERVICE FAST API
+  ai-service:
+    build: ./ai-service
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./ai-service/.env
+    restart: unless-stopped
+    networks:
+      - traefik-public
+  # FRONTEND NEXT.JS
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - traefik-public
+
+networks:
+  traefik-public:
+    external: true

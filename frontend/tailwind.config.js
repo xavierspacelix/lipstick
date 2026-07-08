@@ -1,0 +1,75 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        background: "var(--background)",
+        surface: "var(--surface)",
+        "surface-muted": "var(--surface-muted)",
+        ink: "var(--ink)",
+        "ink-muted": "var(--ink-muted)",
+        primary: "var(--primary)",
+        "primary-foreground": "var(--primary-foreground)",
+        accent: "var(--accent)",
+        "accent-foreground": "var(--accent-foreground)",
+        border: "var(--border)",
+        "focus-ring": "var(--focus-ring)",
+        success: "var(--success)",
+        warning: "var(--warning)",
+        error: "var(--error)",
+        "lip-type-pinkish": "var(--lip-type-pinkish)",
+        "lip-type-brownish": "var(--lip-type-brownish)",
+        "lip-type-dark": "var(--lip-type-dark)",
+      },
+      borderRadius: {
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        full: "var(--radius-full)",
+      },
+      boxShadow: {
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+      },
+      spacing: {
+        1: "var(--space-1)",
+        2: "var(--space-2)",
+        3: "var(--space-3)",
+        4: "var(--space-4)",
+        6: "var(--space-6)",
+        8: "var(--space-8)",
+        12: "var(--space-12)",
+        16: "var(--space-16)",
+        24: "var(--space-24)",
+      },
+      fontFamily: {
+        display: ["var(--font-display)"],
+        sans: ["var(--font-sans)"],
+        mono: ["var(--font-mono)"],
+      },
+      fontSize: {
+        "display-xl": ["var(--text-display-xl)", { lineHeight: "60px" }],
+        "display-lg": ["var(--text-display-lg)", { lineHeight: "42px" }],
+        "display-md": ["var(--text-display-md)", { lineHeight: "30px" }],
+        "body-lg": ["var(--text-body-lg)", { lineHeight: "28px" }],
+        "body-md": ["var(--text-body-md)", { lineHeight: "24px" }],
+        "body-sm": ["var(--text-body-sm)", { lineHeight: "20px" }],
+        "data-md": ["var(--text-data-md)", { lineHeight: "24px" }],
+        "data-sm": ["var(--text-data-sm)", { lineHeight: "18px" }],
+      },
+      transitionTimingFunction: {
+        "ease-out": "var(--ease-out)",
+      },
+      transitionDuration: {
+        fast: "var(--duration-fast)",
+        base: "var(--duration-base)",
+        slow: "var(--duration-slow)",
+      },
+    },
+  },
+  plugins: [],
+};
