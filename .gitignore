@@ -7,10 +7,6 @@ venv/
 dist/
 *.egg
 
-# ML models (too large for git)
-*.h5
-*.pkl
-
 # Environment files (keep .example files)
 .env
 !.env.example

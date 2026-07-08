@@ -11,6 +11,7 @@ import os
 import sys
 import pickle
 from pathlib import Path
+from typing import Optional
 
 import cv2
 import mediapipe as mp
@@ -34,7 +35,7 @@ def classify_lip_color(lab_mean: np.ndarray) -> str:
         return "Dark", 0.80
 
 
-def extract_lip_crop(image: np.ndarray, landmarks) -> np.ndarray | None:
+def extract_lip_crop(image: np.ndarray, landmarks) -> Optional[np.ndarray]:
     h, w, _ = image.shape
     pts = [(int(landmarks[i].x * w), int(landmarks[i].y * h)) for i in LIP_LANDMARKS]
     xs = [p[0] for p in pts]
@@ -49,7 +50,18 @@ def extract_lip_crop(image: np.ndarray, landmarks) -> np.ndarray | None:
     return cv2.resize(crop, (128, 64))
 
 
-def process_dataset(input_dir: str, output_dir: str, limit: int | None = None):
+def load_gender_filter(attr_path: str) -> set[str]:
+    female_ids: set[str] = set()
+    with open(attr_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row.get("Male") == "-1":
+                female_ids.add(row["image_id"])
+    print(f"Gender filter: {len(female_ids)} female images found")
+    return female_ids
+
+
+def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None, female_only: bool = False):
     os.makedirs(output_dir, exist_ok=True)
 
     mp_face_mesh = mp.solutions.face_mesh
@@ -61,10 +73,22 @@ def process_dataset(input_dir: str, output_dir: str, limit: int | None = None):
     if limit:
         image_paths = image_paths[:limit]
 
+    female_ids: Optional[set[str]] = None
+    if female_only:
+        attr_path = os.path.join(os.path.dirname(input_dir.rstrip("/")), "list_attr_celeba.csv")
+        if os.path.exists(attr_path):
+            female_ids = load_gender_filter(attr_path)
+            print(f"Filtering to {len(female_ids)} female images")
+        else:
+            print(f"Warning: {attr_path} not found — skipping gender filter")
+
     samples = []
     skipped = 0
 
     for img_path in tqdm(image_paths, desc="Processing images"):
+        if female_ids is not None and img_path.name not in female_ids:
+            skipped += 1
+            continue
         image = cv2.imread(str(img_path))
         if image is None:
             skipped += 1
@@ -122,5 +146,6 @@ if __name__ == "__main__":
     parser.add_argument("--input", default="./data/celeba/img_align_celeba")
     parser.add_argument("--output", default="./data/processed")
     parser.add_argument("--limit", type=int, default=None, help="Max images to process")
+    parser.add_argument("--female-only", action="store_true", help="Only use female images (requires list_attr_celeba.csv)")
     args = parser.parse_args()
-    process_dataset(args.input, args.output, args.limit)
+    process_dataset(args.input, args.output, args.limit, args.female_only)

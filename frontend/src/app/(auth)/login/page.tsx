@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +20,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { user, loading, login } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   const form = useForm<LoginForm>({
@@ -28,11 +28,18 @@ export default function LoginPage() {
     defaultValues: { email: "", password: "" },
   });
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/dashboard");
+    }
+  }, [user, loading, router]);
+
   async function onSubmit(data: LoginForm) {
     setError(null);
     try {
       await login(data.email, data.password);
-      router.push("/dashboard");
+      window.location.href = "/dashboard";
     } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
     }
