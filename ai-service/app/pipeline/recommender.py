@@ -1,5 +1,8 @@
+import math
+
 import numpy as np
 
+MAX_RGB_DISTANCE = math.sqrt(255 ** 2 * 3)  # ≈ 441.67
 
 lipstick_database = [  # 288 entries — 18 curated + 270 from theBigDataDigest/lipsticks_detect
     {"shade_name": "Bold Raspberry", "category": "Berry", "rgb_r": 150, "rgb_g": 81, "rgb_b": 143, "lip_type_tag": "Pinkish"},
@@ -297,9 +300,13 @@ def rule_based_candidates(lip_type: str) -> list:
     return [ls for ls in lipstick_database if ls["lip_type_tag"] == lip_type]
 
 
+def _euclidean(a: tuple, b: tuple) -> float:
+    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
+
+
 def content_based_score(lip_rgb: tuple, lipstick_rgb: tuple) -> float:
-    distance = np.linalg.norm(np.array(lip_rgb) - np.array(lipstick_rgb))
-    return round(1 / (1 + distance), 3)
+    distance = _euclidean(lip_rgb, lipstick_rgb)
+    return round(max(0, (1 - distance / MAX_RGB_DISTANCE) * 100), 1)
 
 
 def get_top3(lip_type: str, lip_rgb: tuple) -> list:

@@ -56,12 +56,12 @@ export function RecommendationCard({ recommendation, index }: RecommendationCard
               <motion.div
                 className="h-full rounded-full bg-[var(--primary)]"
                 initial={{ width: 0 }}
-                animate={{ width: `${Math.round(recommendation.score * 100)}%` }}
+                animate={{ width: `${Math.round(recommendation.score)}%` }}
                 transition={{ duration: 0.8, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
               />
             </div>
             <span className="font-mono text-data-sm text-[var(--ink)]">
-              {Math.round(recommendation.score * 100)}%
+              {Math.round(recommendation.score)}%
             </span>
           </div>
         </div>

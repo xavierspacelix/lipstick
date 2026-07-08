@@ -292,8 +292,16 @@ lipstick_database = [
 ]
 
 
+MAX_RGB_DISTANCE = math.sqrt(255 ** 2 * 3)  # ≈ 441.67
+
+
 def _euclidean(a: tuple, b: tuple) -> float:
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
+
+
+def _similarity_pct(a: tuple, b: tuple) -> float:
+    distance = _euclidean(a, b)
+    return round(max(0, (1 - distance / MAX_RGB_DISTANCE) * 100), 1)
 
 
 def get_top3(lip_type: str, rgb: tuple) -> list[dict]:
@@ -302,7 +310,7 @@ def get_top3(lip_type: str, rgb: tuple) -> list[dict]:
         {
             "shade_name": ls["shade_name"],
             "category": ls["category"],
-            "score": round(1 / (1 + _euclidean(rgb, (ls["rgb_r"], ls["rgb_g"], ls["rgb_b"]))), 3),
+            "score": _similarity_pct(rgb, (ls["rgb_r"], ls["rgb_g"], ls["rgb_b"])),
             "rgb": {"r": ls["rgb_r"], "g": ls["rgb_g"], "b": ls["rgb_b"]},
         }
         for ls in candidates
