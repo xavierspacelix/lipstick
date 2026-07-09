@@ -79,24 +79,11 @@ uvicorn app.main:app --reload --port 8000
 
 ```bash
 cd ai-service
-python3.11 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8001
 ```
-
-The classifier supports two backends, controlled by `CLASSIFIER_MODE` env var:
-
-```bash
-# TFLite (default) — light, fast, no GPU needed
-CLASSIFIER_MODE=tflite uvicorn app.main:app --reload --port 8001
-
-# TensorFlow — higher accuracy, needs full TF installed
-pip install -r requirements.txt -r requirements-tensorflow.txt
-CLASSIFIER_MODE=tensorflow uvicorn app.main:app --reload --port 8001
-```
-
-If the chosen backend's package is not installed, it falls back to the other mode, then to a rule-based threshold.
 
 ### 4. Frontend
 

@@ -1,3 +1,0 @@
-# Install alongside requirements.txt to use CLASSIFIER_MODE=tflite (default)
-# pip install -r requirements.txt -r requirements-tflite.txt
-tflite-runtime==2.14.0

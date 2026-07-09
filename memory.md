@@ -1,58 +1,40 @@
-# Memory — Docker Build Fix, Score Percentage, TFLite Migration Start
+# Memory — Docker Hybrid Deploy, Score Fix, TensorFlow Only
 
 Last updated: July 9, 2026
 
 ## What was built
 
 **Score percentage fix:**
-- Changed scoring formula from `1/(1+distance)` (raw RGB 0-255 Euclidean → ~3%) to `(1 - distance/441.67) * 100` (intuitive 0-100%)
-- Updated `backend/app/services/recommendation_service.py` — `_similarity_pct()` function
-- Updated `ai-service/app/pipeline/recommender.py` — remove `np.linalg.norm`, use pure `math.sqrt` + same formula
-- Fixed `frontend/src/components/analysis/RecommendationCard.tsx` — removed double `* 100` multiplication
+- Changed scoring formula to relative normalization (best match = 100%)
+- Updated `backend/app/services/recommendation_service.py`, `ai-service/app/pipeline/recommender.py`, `frontend/src/components/analysis/RecommendationCard.tsx`
 
-**Docker build fix (ai-service OOM):**
-- `ai-service/Dockerfile` — split pip install into two stages: mediapipe/fastapi/etc first, then tensorflow with `--no-deps` + only CPU runtime deps (avoids ~2GB nvidia-* CUDA packages)
+**Docker hybrid deploy:**
+- ai-service runs manually on host (screen/nohup), backend/frontend in Docker
+- `docker-compose.yml` has extra_hosts for host.docker.internal
+- `AI_SERVICE_URL=http://host.docker.internal:8001` in backend .env.example
 
-**TFLite migration (started):**
-- Plan: convert `mobilenetv2_lip.h5` → `.tflite`, replace tensorflow with `tflite-runtime`, update `classifier.py`
-- Conversion not yet completed (pip install tensorflow was aborted)
+**Pure TensorFlow mode:**
+- Removed all TFLite code paths from `classifier.py`
+- model loading uses `safe_mode=False, compile=False` for Keras 3 compatibility
+- `requirements.txt` includes `tensorflow==2.17.0` directly
+- Deleted `requirements-tflite.txt` and `requirements-tensorflow.txt`
 
 ## Decisions made
 
-- **Score is now 0-100%** — users see intuitive percentages (80-95% for good matches instead of 2-5%)
-- **TFLite is the right approach** — eliminates CUDA dependency entirely, image drops from ~2GB to ~200MB
+- **Score is now relative (%)** — best match always 100%, others scaled by distance ratio
+- **TensorFlow only** — no dual mode, no TFLite fallback
+- **Hybrid deploy** — ai-service on host (saves ~2GB CUDA packages in Docker)
 
 ## Problems solved
 
-- **Score showed 3%** — Euclidean distance on 0-255 RGB scale makes `1/(1+distance)` produce ~0.03 for close colors; fixed by normalizing against max possible distance (441.67)
-- **Docker build OOM (No space left on device)** — `tensorflow==2.17.0` on Linux pulls all `nvidia-*` CUDA packages; fixed by installing with `--no-deps` + explicit CPU-only deps
+- **Cross-subdomain auth** — `COOKIE_DOMAIN=.spacelix.qzz.io`
+- **S3 mixed-content** — proxy endpoint `/api/v1/images/{bucket}/{key}`
+- **Score ranking** — relative normalization (best=100%)
+- **total_analyses** — counted via query and backfilled
+- **TFLite → TF regression** — Keras 3 loading fixed with `safe_mode=False`
 
 ## Current state
 
-- **Backend:** score now 0-100% intuitive percentage
-- **Frontend:** score bar and label display correct percentage
-- **AI Service:** still depends on tensorflow (TFLite not yet live)
-- **Docker:** ai-service Dockerfile patched but TFLite will simplify further
-
-## Next session starts with
-
-1. **Convert model to TFLite:**
-   ```bash
-   python3 -m pip install tensorflow==2.17.0
-   python3 -c "
-   import tensorflow as tf
-   model = tf.keras.models.load_model('ai-service/app/models/mobilenetv2_lip.h5')
-   converter = tf.lite.TFLiteConverter.from_keras_model(model)
-   tflite_model = converter.convert()
-   with open('ai-service/app/models/mobilenetv2_lip.tflite', 'wb') as f:
-       f.write(tflite_model)
-   "
-   pip uninstall tensorflow
-   ```
-2. Update `classifier.py` to use `tflite.Interpreter` instead of `keras.load_model`
-3. Update `requirements.txt`: `tensorflow` → `tflite-runtime`
-4. Simplify `Dockerfile`: remove the --no-deps hack, just install `tflite-runtime`
-
-## Open questions
-
-- None — TFLite conversion is mechanical once tensorflow is installed temporarily
+- **Backend/Frontend:** Docker (via docker compose up -d)
+- **AI Service:** manual via `screen -S ai-service uvicorn app.main:app --host 0.0.0.0 --port 8001`
+- **Classifier:** TensorFlow only, rule-based fallback if model fails
