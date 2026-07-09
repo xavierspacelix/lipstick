@@ -34,6 +34,7 @@ async def login_user(
             httponly=True,
             secure=True,
             samesite="lax",
+            domain=settings.cookie_domain,
             max_age=settings.access_token_expire_minutes * 60,
         )
         response.set_cookie(
@@ -42,6 +43,7 @@ async def login_user(
             httponly=True,
             secure=True,
             samesite="lax",
+            domain=settings.cookie_domain,
             max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
         )
         return auth_result

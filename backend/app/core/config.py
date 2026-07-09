@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
@@ -13,6 +14,7 @@ class Settings(BaseSettings):
     s3_secret_key: str
     ai_service_url: str
     cors_allowed_origins: str = "http://localhost:3000"
+    cookie_domain: Optional[str] = None
 
     max_upload_size_mb: int = 10
     supported_image_types: list[str] = ["image/jpeg", "image/png"]
