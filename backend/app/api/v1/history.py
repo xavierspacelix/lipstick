@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -5,6 +7,7 @@ from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.analysis import Analysis
 from app.schemas.analysis import AnalysisResponse, AnalysisSummary, LipRGB, Recommendation
+from app.services.storage_service import delete_file
 
 router = APIRouter()
 
@@ -76,6 +79,13 @@ async def delete_history(
     )
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
+
+    for url in [analysis.original_image_url, analysis.cropped_lip_image_url, analysis.brushed_lip_image_url]:
+        if url:
+            parts = urlparse(url).path.split("/")
+            if len(parts) >= 5:
+                bucket, key = parts[3], "/".join(parts[4:])
+                delete_file(bucket, key)
 
     db.delete(analysis)
     db.commit()
