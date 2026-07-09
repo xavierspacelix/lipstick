@@ -5,8 +5,23 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    network_mode: "service:frontend"
+    depends_on:
+      - frontend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lipstick-backend.rule=Host(`api-lipstick.spacelix.qzz.io`)"
+      - "traefik.http.routers.lipstick-backend.entrypoints=websecure"
+      - "traefik.http.routers.lipstick-backend.tls=true"
+      - "traefik.http.services.lipstick-backend.loadbalancer.server.port=8000"
+
+  # 2. FRONTEND NEXT.JS
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://api-lipstick.spacelix.qzz.io
+    restart: unless-stopped
     networks:
       - traefik-public
     labels:
