@@ -5,7 +5,8 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-    network_mode: "host"
+    networks:
+      - traefik-public
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.lipstick-backend.rule=Host(`api-lipstick.spacelix.qzz.io`)"
