@@ -5,9 +5,7 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-    network_mode: "service:frontend"
-    depends_on:
-      - frontend
+    network_mode: "host"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.lipstick-backend.rule=Host(`api-lipstick.spacelix.qzz.io`)"
