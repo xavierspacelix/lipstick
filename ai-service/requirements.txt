@@ -1,6 +1,6 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
-mediapipe==0.10.11
+mediapipe==0.10.13
 tflite-runtime==2.14.0
 numpy==1.26.4
 pillow==10.4.0
