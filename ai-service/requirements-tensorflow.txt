@@ -1,2 +1,3 @@
-# Install this instead of requirements.txt to use CLASSIFIER_MODE=tensorflow
+# Install alongside requirements.txt to use CLASSIFIER_MODE=tensorflow
+# pip install -r requirements.txt -r requirements-tensorflow.txt
 tensorflow==2.17.0
