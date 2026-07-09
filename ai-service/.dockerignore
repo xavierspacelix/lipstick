@@ -1,7 +1,14 @@
 __pycache__
 *.pyc
 .git
+.gitignore
 .env
+.venv
+venv
 *.md
 training/data
+training/__pycache__
 **/*.h5
+**/*.pth
+Dockerfile
+requirements.txt

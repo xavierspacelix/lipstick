@@ -1,6 +1,11 @@
 __pycache__
 *.pyc
 .git
+.gitignore
 .env
+.venv
+venv
 *.md
 alembic/versions/*.pyc
+Dockerfile
+requirements.txt

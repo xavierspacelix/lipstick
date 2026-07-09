@@ -1,5 +1,16 @@
 node_modules
 .next
 .git
+.gitignore
 .env.local
+.env
 *.md
+Dockerfile
+next.config.ts
+tsconfig.json
+tsconfig.tsbuildinfo
+eslint.config.mjs
+postcss.config.js
+tailwind.config.js
+components.json
+package-lock.json
