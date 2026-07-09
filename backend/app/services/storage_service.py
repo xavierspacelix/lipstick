@@ -30,11 +30,7 @@ async def upload_file(bucket: str, path: str, data: bytes, content_type: str = "
         Body=data,
         ContentType=content_type,
     )
-    return s3_client.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": bucket, "Key": path},
-        ExpiresIn=86400,
-    )
+    return f"/api/v1/images/{bucket}/{path}"
 
 
 async def delete_file(bucket: str, path: str) -> None:
