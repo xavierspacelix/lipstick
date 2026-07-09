@@ -11,4 +11,3 @@ training/__pycache__
 **/*.h5
 **/*.pth
 Dockerfile
-requirements.txt
