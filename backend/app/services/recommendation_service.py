@@ -310,9 +310,17 @@ def get_top3(lip_type: str, rgb: tuple) -> list[dict]:
         {
             "shade_name": ls["shade_name"],
             "category": ls["category"],
-            "score": _similarity_pct(rgb, (ls["rgb_r"], ls["rgb_g"], ls["rgb_b"])),
+            "distance": _euclidean(rgb, (ls["rgb_r"], ls["rgb_g"], ls["rgb_b"])),
             "rgb": {"r": ls["rgb_r"], "g": ls["rgb_g"], "b": ls["rgb_b"]},
         }
         for ls in candidates
     ]
-    return sorted(scored, key=lambda x: x["score"], reverse=True)[:3]
+    top3 = sorted(scored, key=lambda x: x["distance"])[:3]
+    best_dist = top3[0]["distance"]
+    for item in top3:
+        if best_dist == 0:
+            item["score"] = 100.0
+        else:
+            item["score"] = round(max(0, (1 - item["distance"] / best_dist) * 50 + 50), 1)
+        del item["distance"]
+    return top3

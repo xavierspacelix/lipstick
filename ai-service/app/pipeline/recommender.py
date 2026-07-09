@@ -1,9 +1,5 @@
 import math
 
-import numpy as np
-
-MAX_RGB_DISTANCE = math.sqrt(255 ** 2 * 3)  # ≈ 441.67
-
 lipstick_database = [  # 288 entries — 18 curated + 270 from theBigDataDigest/lipsticks_detect
     {"shade_name": "Bold Raspberry", "category": "Berry", "rgb_r": 150, "rgb_g": 81, "rgb_b": 143, "lip_type_tag": "Pinkish"},
     {"shade_name": "Glossy Berry", "category": "Berry", "rgb_r": 167, "rgb_g": 97, "rgb_b": 101, "lip_type_tag": "Pinkish"},
@@ -304,10 +300,6 @@ def _euclidean(a: tuple, b: tuple) -> float:
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
 
 
-def content_based_score(lip_rgb: tuple, lipstick_rgb: tuple) -> float:
-    distance = _euclidean(lip_rgb, lipstick_rgb)
-    return round(max(0, (1 - distance / MAX_RGB_DISTANCE) * 100), 1)
-
 
 def get_top3(lip_type: str, lip_rgb: tuple) -> list:
     candidates = rule_based_candidates(lip_type)
@@ -315,10 +307,17 @@ def get_top3(lip_type: str, lip_rgb: tuple) -> list:
         {
             "shade_name": ls["shade_name"],
             "category": ls["category"],
-            "score": content_based_score(lip_rgb, (ls["rgb_r"], ls["rgb_g"], ls["rgb_b"])),
+            "distance": _euclidean(lip_rgb, (ls["rgb_r"], ls["rgb_g"], ls["rgb_b"])),
             "rgb": {"r": ls["rgb_r"], "g": ls["rgb_g"], "b": ls["rgb_b"]},
         }
         for ls in candidates
     ]
-    ranked = sorted(scored, key=lambda x: x["score"], reverse=True)
-    return ranked[:3]
+    top3 = sorted(scored, key=lambda x: x["distance"])[:3]
+    best_dist = top3[0]["distance"]
+    for item in top3:
+        if best_dist == 0:
+            item["score"] = 100.0
+        else:
+            item["score"] = round(max(0, (1 - item["distance"] / best_dist) * 50 + 50), 1)
+        del item["distance"]
+    return top3
