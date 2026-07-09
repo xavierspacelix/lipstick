@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.analysis import Analysis
+from app.models.user import User
 from app.schemas.analysis import AnalysisResponse, LipRGB, Recommendation
 from app.services.recommendation_service import get_top3
 from app.services.storage_service import upload_file
@@ -103,6 +104,12 @@ async def run_analysis(
         created_at=datetime.now(timezone.utc),
     )
     db.add(analysis)
+    db.flush()
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+        user.total_analyses = db.query(Analysis).filter(Analysis.user_id == user_id).count()
+
     db.commit()
     db.refresh(analysis)
 
