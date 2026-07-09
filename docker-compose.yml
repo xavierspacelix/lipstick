@@ -7,6 +7,7 @@ services:
     restart: unless-stopped
     networks:
       - traefik-public
+      - default
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.lipstick-backend.rule=Host(`api-lipstick.spacelix.qzz.io`)"
@@ -33,3 +34,5 @@ services:
 networks:
   traefik-public:
     external: true
+  default:
+    driver: bridge
