@@ -8,4 +8,3 @@ venv
 *.md
 alembic/versions/*.pyc
 Dockerfile
-requirements.txt
