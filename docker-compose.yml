@@ -1,22 +1,12 @@
 services:
-  # 1. AI SERVICE (Internal - Tidak diekspos ke internet)
-  ai-service:
-    build: ./ai-service
-    env_file:
-      - ./ai-service/.env
-    restart: unless-stopped
-    networks:
-      - traefik-public
-
-  # 2. FAST API BACKEND
+  # 1. FAST API BACKEND
   backend:
     build: ./backend
     env_file:
       - ./backend/.env
-    depends_on:
-      ai-service:
-        condition: service_started
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - traefik-public
     labels:
@@ -26,12 +16,11 @@ services:
       - "traefik.http.routers.lipstick-backend.tls=true"
       - "traefik.http.services.lipstick-backend.loadbalancer.server.port=8000"
 
-  # 3. FRONTEND NEXT.JS
+  # 2. FRONTEND NEXT.JS
   frontend:
     build:
       context: ./frontend
       args:
-        # SEKARANG MENGARAH KE DOMAIN API PUBLIK VPS KAMU
         NEXT_PUBLIC_API_URL: https://api-lipstick.spacelix.qzz.io
     depends_on:
       - backend
