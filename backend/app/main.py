@@ -5,7 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.db.base import Base
-from app.db.session import engine
+from app.db.session import engine, SessionLocal
+from app.models.user import User
+from app.models.analysis import Analysis
 from app.services.storage_service import ensure_buckets
 
 
@@ -13,6 +15,18 @@ from app.services.storage_service import ensure_buckets
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_buckets()
+
+    db = SessionLocal()
+    try:
+        users = db.query(User).all()
+        for user in users:
+            count = db.query(Analysis).filter(Analysis.user_id == user.id).count()
+            if user.total_analyses != count:
+                user.total_analyses = count
+        db.commit()
+    finally:
+        db.close()
+
     yield
 
 
