@@ -13,4 +13,3 @@ eslint.config.mjs
 postcss.config.js
 tailwind.config.js
 components.json
-package-lock.json
