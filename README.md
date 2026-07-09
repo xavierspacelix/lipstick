@@ -85,7 +85,18 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8001
 ```
 
-> MediaPipe runs on CPU. The TensorFlow model (`mobilenetv2_lip.h5`) is optional — a rule-based fallback is used when absent.
+The classifier supports two backends, controlled by `CLASSIFIER_MODE` env var:
+
+```bash
+# TFLite (default) — light, fast, no GPU needed
+CLASSIFIER_MODE=tflite uvicorn app.main:app --reload --port 8001
+
+# TensorFlow — higher accuracy, needs full TF installed
+pip install -r requirements.txt -r requirements-tensorflow.txt
+CLASSIFIER_MODE=tensorflow uvicorn app.main:app --reload --port 8001
+```
+
+If the chosen backend's package is not installed, it falls back to the other mode, then to a rule-based threshold.
 
 ### 4. Frontend
 
