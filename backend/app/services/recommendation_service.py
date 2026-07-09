@@ -311,10 +311,12 @@ def get_top3(lip_type: str, rgb: tuple) -> list[dict]:
     min_dist = min(item["distance"] for item in top3)
     max_dist = max(item["distance"] for item in top3)
     rng = max_dist - min_dist
+    floor = 20
     for item in top3:
         if rng == 0:
             item["score"] = 100.0
         else:
-            item["score"] = round((1 - (item["distance"] - min_dist) / rng) * 100, 1)
+            normalized = 1 - (item["distance"] - min_dist) / rng
+            item["score"] = round(floor + normalized * (100 - floor), 1)
         del item["distance"]
     return top3
