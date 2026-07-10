@@ -5,12 +5,13 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from app.pipeline.face_detection import detect_face
 from app.pipeline.lip_segmentation import apply_tryon, segment_lips
 from app.pipeline.rgb_extraction import extract_rgb
-from app.pipeline.classifier import classify_lip_type
+from app.pipeline.classifier import classify_lip_type, load_model
 from app.pipeline.recommender import get_top3
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    load_model()
     yield
 
 
