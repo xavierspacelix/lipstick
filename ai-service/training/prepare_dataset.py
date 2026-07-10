@@ -11,7 +11,7 @@ import os
 import sys
 import pickle
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import cv2
 import mediapipe as mp
@@ -23,16 +23,15 @@ from tqdm import tqdm
 LIP_LANDMARKS = list(range(61, 68)) + list(range(48, 61))
 
 
-def classify_lip_color(lab_mean: np.ndarray) -> str:
+def classify_lip_color(lab_mean: np.ndarray) -> tuple[str, float]:
     l, a, b = lab_mean
-    if l < 40:
-        return "Dark", 0.90
-    elif a > 12 and l > 50:
-        return "Pinkish", 0.85
-    elif a <= 12 and l >= 40:
-        return "Brownish", 0.85
-    else:
-        return "Dark", 0.80
+    if l < 35:
+        return ("Dark", 0.90)
+    if a > 12 and l > 50:
+        return ("Pinkish", 0.85)
+    if a > 5 or l > 40:
+        return ("Brownish", 0.80)
+    return ("Dark", 0.80)
 
 
 def extract_lip_crop(image: np.ndarray, landmarks) -> Optional[np.ndarray]:
