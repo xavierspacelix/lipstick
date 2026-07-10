@@ -61,7 +61,7 @@ def load_gender_filter(attr_path: str) -> set[str]:
     return female_ids
 
 
-def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None, female_only: bool = False):
+def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None, female_only: bool = False, balance: int = 0):
     os.makedirs(output_dir, exist_ok=True)
 
     mp_face_mesh = mp.solutions.face_mesh
@@ -117,6 +117,18 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
             "lab_mean": lab_mean.tolist(),
         })
 
+    # Balance per class if requested
+    if balance > 0:
+        by_label: dict[str, list] = {}
+        for s in samples:
+            by_label.setdefault(s["label"], []).append(s)
+        samples = []
+        import random
+        for label in by_label:
+            random.shuffle(by_label[label])
+            samples.extend(by_label[label][:balance])
+        print(f"Balanced to max {balance} per class: {len(samples)} total")
+
     label_counts = {}
     for s in samples:
         label_counts[s["label"]] = label_counts.get(s["label"], 0) + 1
@@ -147,5 +159,6 @@ if __name__ == "__main__":
     parser.add_argument("--output", default="./data/processed")
     parser.add_argument("--limit", type=int, default=None, help="Max images to process")
     parser.add_argument("--female-only", action="store_true", help="Only use female images (requires list_attr_celeba.csv)")
+    parser.add_argument("--balance", type=int, default=0, help="Max samples per class (0=unlimited)")
     args = parser.parse_args()
-    process_dataset(args.input, args.output, args.limit, args.female_only)
+    process_dataset(args.input, args.output, args.limit, args.female_only, args.balance)
