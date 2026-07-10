@@ -203,7 +203,10 @@ def train(
     import shutil
     if os.path.exists(savedmodel_dir):
         shutil.rmtree(savedmodel_dir)
-    model.save(savedmodel_dir)
+    import shutil
+    if os.path.exists(savedmodel_dir):
+        shutil.rmtree(savedmodel_dir)
+    model.export(savedmodel_dir)
     print(f"SavedModel saved to {savedmodel_dir}")
 
     # Plot training history
