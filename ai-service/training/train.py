@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 from sklearn.model_selection import train_test_split
-from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras import layers, models, optimizers
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
@@ -65,18 +64,23 @@ def load_image(path: str) -> np.ndarray:
     return img.astype(np.float32) / 255.0
 
 
-def data_generator(samples, batch_size: int):
+def data_generator(samples, batch_size: int, class_weights: dict = None):
+    """Yield batches. If class_weights given, oversample minority classes."""
+    import random as _random
     while True:
-        for i in range(0, len(samples), batch_size):
-            batch = samples[i:i + batch_size]
-            images, labels = [], []
-            for path, label in batch:
-                img = load_image(path)
-                if img is not None:
-                    images.append(img)
-                    labels.append(label)
-            if images:
-                yield np.array(images), np.array(labels)
+        if class_weights:
+            # Oversample: pick samples proportionally to class_weights
+            batch = _random.choices(samples, weights=[class_weights.get(l, 1.0) for _, l in samples], k=batch_size)
+        else:
+            batch = _random.sample(samples, min(batch_size, len(samples)))
+        images, labels = [], []
+        for path, label in batch:
+            img = load_image(path)
+            if img is not None:
+                images.append(img)
+                labels.append(label)
+        if images:
+            yield np.array(images), np.array(labels)
 
 
 def build_model(num_classes: int = 3):
@@ -124,17 +128,19 @@ def train(
     val_samples = samples[split_idx:]
     print(f"Train: {len(train_samples)}, Val: {len(val_samples)}")
 
-    # Compute class weights from train labels
+    # Compute class weights from train labels (for oversampling)
     train_labels = [label for _, label in train_samples]
     unique, counts = np.unique(train_labels, return_counts=True)
-    class_weight_dict = {c: len(train_samples) / (len(unique) * cnt) for c, cnt in zip(unique, counts)}
+    # Higher weight = more samples drawn for that class
+    max_count = float(max(counts))
+    oversample_weights = {c: max_count / cnt for c, cnt in zip(unique, counts)}
     print(f"Class distribution: {dict(zip(unique, counts))}")
-    print(f"Class weights: {class_weight_dict}")
+    print(f"Oversample weights: {oversample_weights}")
 
     model, base = build_model()
     print(model.summary())
 
-    train_gen = data_generator(train_samples, batch_size)
+    train_gen = data_generator(train_samples, batch_size, class_weights=oversample_weights)
     val_gen = data_generator(val_samples, batch_size)
     steps_per_epoch = max(1, len(train_samples) // batch_size)
     validation_steps = max(1, len(val_samples) // batch_size)
@@ -156,7 +162,6 @@ def train(
         steps_per_epoch=steps_per_epoch,
         validation_steps=validation_steps,
         epochs=epochs,
-        class_weight=class_weight_dict,
         callbacks=callbacks,
         verbose=1,
     )
@@ -179,7 +184,6 @@ def train(
             steps_per_epoch=steps_per_epoch,
             validation_steps=validation_steps,
             epochs=epochs // 2,
-            class_weight=class_weight_dict,
             callbacks=callbacks,
             verbose=1,
         )
