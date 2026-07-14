@@ -1,7 +1,11 @@
 """
 Visualize labeled CelebA samples to verify K-Means clustering quality.
 
-Shows a grid of sample faces grouped by predicted label (Pinkish/Brownish/Dark).
+Layout:
+    [Pinkish]  [Brownish]  [Dark]
+    img         img         img
+    img         img         img
+    ...
 
 Usage:
     python training/visualize_labels.py
@@ -30,25 +34,27 @@ def visualize(metadata_path: str, output_path: str, samples_per_class: int = 9):
     labels = ["Pinkish", "Brownish", "Dark"]
     colors = {"Pinkish": "#e74c8b", "Brownish": "#8b5e3c", "Dark": "#4a1942"}
     n = samples_per_class
+    ncols = len(labels)
 
-    fig, axes = plt.subplots(len(labels), n, figsize=(n * 2.5, len(labels) * 2.5))
+    fig, axes = plt.subplots(n, ncols, figsize=(ncols * 2.5, n * 2.5))
     fig.suptitle("K-Means Clustering Results — CelebA Lip Colors", fontsize=14, fontweight="bold")
 
-    for row, label in enumerate(labels):
+    for col, label in enumerate(labels):
         pool = by_label.get(label, [])
         chosen = random.sample(pool, min(n, len(pool)))
-        for col in range(n):
+        for row in range(n):
             ax = axes[row, col]
-            if col < len(chosen):
-                img = cv2.imread(chosen[col]["path"])
+            if row < len(chosen):
+                img = cv2.imread(chosen[row]["path"])
                 if img is not None:
                     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                     ax.imshow(img_rgb)
-                lm = chosen[col].get("lab_mean", [0, 0, 0])
-                ax.set_title(f"L={lm[0]:.0f} a={lm[1]:.0f} b={lm[2]:.0f}", fontsize=7)
-            ax.axis("off")
-            if col == 0:
-                ax.set_ylabel(label, fontsize=11, color=colors[label], fontweight="bold")
+                lm = chosen[row].get("lab_mean", [0, 0, 0])
+                ax.set_xlabel(f"L={lm[0]:.0f} a={lm[1]:.0f} b={lm[2]:.0f}", fontsize=6)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if row == 0:
+                ax.set_title(label, fontsize=12, color=colors[label], fontweight="bold")
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
