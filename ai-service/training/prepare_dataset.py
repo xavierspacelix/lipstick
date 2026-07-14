@@ -127,6 +127,30 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
         l, a, b = centroids[c]
         print(f"  {label:10s}  L={l:.1f}  a={a:.1f}  b={b:.1f}")
 
+    # Visualize clustering
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        colors_map = {"Pinkish": "#e74c8b", "Brownish": "#8b5e3c", "Dark": "#4a1942"}
+        labels_arr = [cluster_to_label[c] for c in kmeans.labels_]
+        fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+        pairs = [(0, 1, "L", "a"), (0, 2, "L", "b"), (1, 2, "a", "b")]
+        for ax, (i, j, xi, yj) in zip(axes, pairs):
+            for cls in ["Pinkish", "Brownish", "Dark"]:
+                mask = [l == cls for l in labels_arr]
+                ax.scatter(X[mask, i], X[mask, j], c=colors_map[cls], label=cls, alpha=0.3, s=2)
+            ax.scatter(centroids[:, i], centroids[:, j], c="black", marker="X", s=100, label="Centroid")
+            ax.set_xlabel(xi), ax.set_ylabel(yj)
+            ax.legend(fontsize=7)
+        plt.tight_layout()
+        plot_path = os.path.join(output_dir, "clustering.png")
+        plt.savefig(plot_path, dpi=150)
+        plt.close()
+        print(f"Clustering plot saved to {plot_path}", flush=True)
+    except ImportError:
+        print("matplotlib not installed — skipping clustering plot", flush=True)
+
     # Balance per class if requested
     if balance > 0:
         by_label: dict[str, list] = {}
