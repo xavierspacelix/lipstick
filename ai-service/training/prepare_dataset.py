@@ -17,21 +17,12 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from PIL import Image
+from sklearn.cluster import KMeans
 from tqdm import tqdm
 
 
 LIP_LANDMARKS = list(range(61, 68)) + list(range(48, 61))
-
-
-def classify_lip_color(lab_mean: np.ndarray) -> tuple[str, float]:
-    l, a, b = lab_mean
-    if l < 35:
-        return ("Dark", 0.90)
-    if a > 12 and l > 50:
-        return ("Pinkish", 0.85)
-    if a > 5 or l > 40:
-        return ("Brownish", 0.80)
-    return ("Dark", 0.80)
+LABEL_NAMES = ["Pinkish", "Brownish", "Dark"]
 
 
 def extract_lip_crop(image: np.ndarray, landmarks) -> Optional[np.ndarray]:
@@ -82,6 +73,7 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
             print(f"Warning: {attr_path} not found — skipping gender filter")
 
     samples = []
+    all_lab_means = []
     skipped = 0
 
     for img_path in tqdm(image_paths, desc="Processing images"):
@@ -107,14 +99,33 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
 
         lab = cv2.cvtColor(lip_crop, cv2.COLOR_RGB2LAB)
         lab_mean = np.mean(lab, axis=(0, 1))
-        label, confidence = classify_lip_color(lab_mean)
 
+        all_lab_means.append(lab_mean)
         samples.append({
             "path": str(img_path),
-            "label": label,
-            "confidence": confidence,
             "lab_mean": lab_mean.tolist(),
         })
+
+    # K-Means clustering on LAB means (k=3: Pinkish, Brownish, Dark)
+    print("\nRunning K-Means clustering...", flush=True)
+    X = np.array(all_lab_means)
+    kmeans = KMeans(n_clusters=3, random_state=42, n_init="auto").fit(X)
+
+    # Sort clusters by L (brightness): brightest = Pinkish, middle = Brownish, darkest = Dark
+    centroids = kmeans.cluster_centers_
+    cluster_order = np.argsort(centroids[:, 0])[::-1]  # descending by L
+    cluster_to_label = {cluster_order[0]: "Pinkish", cluster_order[1]: "Brownish", cluster_order[2]: "Dark"}
+
+    for i, s in enumerate(samples):
+        cluster = int(kmeans.labels_[i])
+        s["label"] = cluster_to_label[cluster]
+        s["confidence"] = round(0.75 + 0.15 * (1 - kmeans.inertia_ / (3 * X.var())), 2)
+
+    print(f"Cluster centroids (L,a,b):")
+    for c in range(3):
+        label = cluster_to_label[c]
+        l, a, b = centroids[c]
+        print(f"  {label:10s}  L={l:.1f}  a={a:.1f}  b={b:.1f}")
 
     # Balance per class if requested
     if balance > 0:
