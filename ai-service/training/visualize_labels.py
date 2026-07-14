@@ -45,7 +45,8 @@ def visualize(metadata_path: str, output_path: str, samples_per_class: int = 9):
         for row in range(n):
             ax = axes[row, col]
             if row < len(chosen):
-                img = cv2.imread(chosen[row]["path"])
+                crop_path = chosen[row].get("crop_path") or chosen[row]["path"]
+                img = cv2.imread(crop_path)
                 if img is not None:
                     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                     ax.imshow(img_rgb)

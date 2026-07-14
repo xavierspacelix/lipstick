@@ -101,8 +101,16 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
         lab_mean = np.mean(lab, axis=(0, 1))
 
         all_lab_means.append(lab_mean)
+
+        # Save lip crop thumbnail
+        crop_dir = os.path.join(output_dir, "crops")
+        os.makedirs(crop_dir, exist_ok=True)
+        crop_path = os.path.join(os.path.abspath(crop_dir), img_path.name)
+        cv2.imwrite(crop_path, cv2.cvtColor(lip_crop, cv2.COLOR_RGB2BGR))
+
         samples.append({
             "path": str(img_path),
+            "crop_path": crop_path,
             "lab_mean": lab_mean.tolist(),
         })
 
