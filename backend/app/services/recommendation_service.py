@@ -308,16 +308,8 @@ def get_top3(lip_type: str, rgb: tuple) -> list[dict]:
         for ls in candidates
     ]
     top3 = sorted(scored, key=lambda x: x["distance"])[:3]
-    all_distances = [item["distance"] for item in scored]
-    min_dist = min(all_distances)
-    max_dist = max(all_distances)
-    rng = max_dist - min_dist
-    floor = 20
     for item in top3:
-        if rng == 0:
-            item["score"] = 100.0
-        else:
-            normalized = 1 - (item["distance"] - min_dist) / rng
-            item["score"] = round(floor + normalized * (100 - floor), 1)
+        similarity = (1 - item["distance"] / 441.67) * 100
+        item["score"] = round(max(0, similarity), 1)
         item["similarity"] = item["score"]
     return top3
