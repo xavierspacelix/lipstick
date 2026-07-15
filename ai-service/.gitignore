@@ -24,3 +24,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Dataset & generated files
+data/celeba/
+data/primer/
+data/*_processed/
+data/processed/
+data/merged/
+*.pkl
+!requirements*.txt

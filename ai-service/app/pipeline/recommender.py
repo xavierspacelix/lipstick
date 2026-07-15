@@ -323,5 +323,5 @@ def get_top3(lip_type: str, lip_rgb: tuple) -> list:
         else:
             normalized = 1 - (item["distance"] - min_dist) / rng
             item["score"] = round(floor + normalized * (100 - floor), 1)
-        del item["distance"]
+        item["similarity"] = item["score"]
     return top3

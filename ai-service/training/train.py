@@ -16,7 +16,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay, classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from tensorflow.keras import layers, models, optimizers
 from tensorflow.keras.applications import MobileNetV2
@@ -27,6 +27,7 @@ from tqdm import tqdm
 
 IMG_SIZE = (224, 224)
 LABEL_MAP = {"Pinkish": 0, "Brownish": 1, "Dark": 2}
+INPUT_SIZES = {"mobilenetv2": 224, "inceptionv3": 299, "resnet50": 224}
 
 
 def load_samples(metadata_path: str, balance: int = 0):
@@ -64,19 +65,35 @@ def load_image(path: str) -> np.ndarray:
     return img.astype(np.float32) / 255.0
 
 
-def data_generator(samples, batch_size: int, class_weights: dict = None):
+def augment_image(img: np.ndarray) -> np.ndarray:
+    img = img.copy()
+    brightness = random.uniform(0.7, 1.3)
+    img = np.clip(img * brightness, 0, 1)
+    if random.random() > 0.5:
+        hsv = cv2.cvtColor((img * 255).astype(np.uint8), cv2.COLOR_RGB2HSV)
+        hsv[:, :, 0] = (hsv[:, :, 0].astype(int) + random.randint(-10, 10)) % 180
+        img = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB).astype(np.float32) / 255.0
+    if random.random() > 0.5:
+        h, w = img.shape[:2]
+        scale = random.uniform(0.9, 1.1)
+        M = cv2.getRotationMatrix2D((w / 2, h / 2), random.uniform(-5, 5), scale)
+        img = cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REFLECT)
+    return img
+
+
+def data_generator(samples, batch_size: int, class_weights: dict = None, augment: bool = False):
     """Yield batches. If class_weights given, oversample minority classes."""
-    import random as _random
     while True:
         if class_weights:
-            # Oversample: pick samples proportionally to class_weights
-            batch = _random.choices(samples, weights=[class_weights.get(l, 1.0) for _, l in samples], k=batch_size)
+            batch = random.choices(samples, weights=[class_weights.get(l, 1.0) for _, l in samples], k=batch_size)
         else:
-            batch = _random.sample(samples, min(batch_size, len(samples)))
+            batch = random.sample(samples, min(batch_size, len(samples)))
         images, labels = [], []
         for path, label in batch:
             img = load_image(path)
             if img is not None:
+                if augment:
+                    img = augment_image(img)
                 images.append(img)
                 labels.append(label)
         if images:
@@ -117,7 +134,10 @@ def train(
     val_split: float,
     fine_tune: bool,
     balance: int = 0,
+    img_size: int = 224,
 ):
+    global IMG_SIZE
+    IMG_SIZE = (img_size, img_size)
     print(f"Loading dataset from {metadata_path}...")
     samples = load_samples(metadata_path, balance)
     print(f"Total samples: {len(samples)}")
@@ -140,8 +160,8 @@ def train(
     model, base = build_model()
     print(model.summary())
 
-    train_gen = data_generator(train_samples, batch_size, class_weights=oversample_weights)
-    val_gen = data_generator(val_samples, batch_size)
+    train_gen = data_generator(train_samples, batch_size, class_weights=oversample_weights, augment=True)
+    val_gen = data_generator(val_samples, batch_size, augment=False)
     steps_per_epoch = max(1, len(train_samples) // batch_size)
     validation_steps = max(1, len(val_samples) // batch_size)
 
@@ -188,6 +208,46 @@ def train(
             verbose=1,
         )
 
+    # --- Phase 3: Pseudo-labeling (self-training) ---
+    print("\n--- Phase 3: Pseudo-labeling ---")
+    print("Predicting on training set to find high-confidence samples...")
+    pseudo_samples = []
+    for i in range(0, len(train_samples), batch_size):
+        batch_paths = train_samples[i:i + batch_size]
+        images = []
+        for path, _ in batch_paths:
+            img = load_image(path)
+            if img is not None:
+                images.append(img)
+        if not images:
+            continue
+        images = np.array(images)
+        preds = model.predict(images, verbose=0)
+        max_probs = np.max(preds, axis=1)
+        pred_labels = np.argmax(preds, axis=1)
+        for j, (path, _) in enumerate(batch_paths):
+            if max_probs[j] >= 0.9:
+                pseudo_samples.append((path, int(pred_labels[j])))
+
+    print(f"Found {len(pseudo_samples)} high-confidence pseudo-labels (threshold=0.9)")
+    if len(pseudo_samples) > len(train_samples) * 0.3:
+        pseudo_steps = max(1, len(pseudo_samples) // (batch_size // 2))
+        pseudo_gen = data_generator(pseudo_samples, batch_size // 2, augment=True)
+        model.compile(
+            optimizer=optimizers.Adam(learning_rate=5e-6),
+            loss="sparse_categorical_crossentropy",
+            metrics=["accuracy"],
+        )
+        history = model.fit(
+            pseudo_gen,
+            validation_data=val_gen,
+            steps_per_epoch=pseudo_steps,
+            validation_steps=validation_steps,
+            epochs=5,
+            callbacks=[EarlyStopping(patience=3, restore_best_weights=True, monitor="val_accuracy")],
+            verbose=1,
+        )
+
     # Save final model
     final_path = output_path.replace(".h5", "_best.h5") if os.path.exists(output_path.replace(".h5", "_best.h5")) else output_path
     print(f"\nBest model saved to {final_path}")
@@ -230,9 +290,14 @@ def train(
     plt.close()
     print(f"Training plots saved to {plot_dir}/history.png")
 
-    # Confusion matrix (load a subset of val for prediction)
+    # Free some memory before confusion matrix
+    import gc
+    del train_gen, val_gen
+    gc.collect()
+
+    # Confusion matrix (small subset to avoid OOM)
     val_images, val_labels = [], []
-    for path, label in val_samples[:2000]:
+    for path, label in val_samples[:50]:
         img = load_image(path)
         if img is not None:
             val_images.append(img)
@@ -240,7 +305,13 @@ def train(
     if val_images:
         val_images = np.array(val_images)
         val_labels = np.array(val_labels)
-        y_pred = np.argmax(model.predict(val_images, verbose=0, batch_size=batch_size), axis=1)
+        # Predict in small batches to save memory
+        y_pred = []
+        for i in range(0, len(val_images), 16):
+            batch = val_images[i:i+16]
+            preds = model.predict(batch, verbose=0)
+            y_pred.extend(np.argmax(preds, axis=1))
+        y_pred = np.array(y_pred)
         cm = confusion_matrix(val_labels, y_pred)
         LABELS_LIST = ["Pinkish", "Brownish", "Dark"]
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS_LIST)
@@ -254,6 +325,47 @@ def train(
         print(f"\nConfusion Matrix:\n{LABELS_LIST}")
         print(cm)
 
+        # Classification report
+        report = classification_report(val_labels, y_pred, target_names=LABELS_LIST, digits=4)
+        print("\nClassification Report:")
+        print(report)
+
+        # Save report as TXT
+        with open(os.path.join(plot_dir, "classification_report.txt"), "w") as f:
+            f.write(report)
+        print(f"Classification report saved to {plot_dir}/classification_report.txt")
+
+        # Save report as PNG table (with error handling)
+        try:
+            fig, ax = plt.subplots(figsize=(8, 3))
+            ax.axis("off")
+            cell_text = []
+            rows = []
+            for line in report.split("\n"):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                parts = stripped.split()
+                if len(parts) < 4:
+                    continue
+                if parts[0] in LABELS_LIST:
+                    rows.append(parts[0])
+                    cell_text.append(parts[1:5])
+                elif parts[0] == "accuracy":
+                    rows.append("accuracy")
+                    cell_text.append(["-", "-"] + parts[1:3])
+            col_labels = ["precision", "recall", "f1-score", "support"]
+            table = ax.table(cellText=cell_text, rowLabels=rows, colLabels=col_labels, loc="center")
+            table.auto_set_font_size(False)
+            table.set_fontsize(10)
+            table.scale(1, 1.5)
+            plt.tight_layout()
+            plt.savefig(os.path.join(plot_dir, "classification_report.png"), dpi=200, bbox_inches="tight")
+            plt.close()
+            print(f"Classification report saved to {plot_dir}/classification_report.png")
+        except Exception as e:
+            print(f"Warning: Could not save classification report PNG: {e}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -264,5 +376,6 @@ if __name__ == "__main__":
     parser.add_argument("--val-split", type=float, default=0.15)
     parser.add_argument("--fine-tune", action="store_true", default=True, help="Enable fine-tuning phase")
     parser.add_argument("--balance", type=int, default=5000, help="Max samples per class (0=unlimited)")
+    parser.add_argument("--img-size", type=int, default=224, choices=[224, 299], help="Input image size (224=MobileNetV2, 299=InceptionV3)")
     args = parser.parse_args()
-    train(args.data, args.output, args.epochs, args.batch_size, args.val_split, args.fine_tune)
+    train(args.data, args.output, args.epochs, args.batch_size, args.val_split, args.fine_tune, args.balance, args.img_size)

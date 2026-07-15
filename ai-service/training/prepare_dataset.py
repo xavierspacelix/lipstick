@@ -18,10 +18,12 @@ import mediapipe as mp
 import numpy as np
 from PIL import Image
 from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 
-LIP_LANDMARKS = list(range(61, 68)) + list(range(48, 61))
+# MediaPipe face mesh lip contour (outer + inner, excludes nose bridge)
+LIP_LANDMARKS = [17, 61, 78, 80, 81, 82, 84, 87, 88, 91, 95, 146, 178, 181, 185, 191, 291, 308, 310, 311, 312, 314, 317, 318, 321, 324, 375, 402, 405, 409, 415]
 LABEL_NAMES = ["Pinkish", "Brownish", "Dark"]
 
 
@@ -58,7 +60,11 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
     face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, min_detection_confidence=0.5)
 
     image_dir = input_dir
-    image_paths = sorted(Path(image_dir).glob("*.jpg"))
+    image_paths = sorted(
+        list(Path(image_dir).glob("*.jpg")) +
+        list(Path(image_dir).glob("*.jpeg")) +
+        list(Path(image_dir).glob("*.png"))
+    )
 
     if limit:
         image_paths = image_paths[:limit]
@@ -73,7 +79,7 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
             print(f"Warning: {attr_path} not found — skipping gender filter")
 
     samples = []
-    all_lab_means = []
+    all_features = []
     skipped = 0
 
     for img_path in tqdm(image_paths, desc="Processing images"):
@@ -97,10 +103,24 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
             skipped += 1
             continue
 
+        # Extract rich color features
         lab = cv2.cvtColor(lip_crop, cv2.COLOR_RGB2LAB)
         lab_mean = np.mean(lab, axis=(0, 1))
+        rgb_mean = np.mean(lip_crop, axis=(0, 1))
+        hsv = cv2.cvtColor(lip_crop, cv2.COLOR_RGB2HSV)
+        hsv_mean = np.mean(hsv, axis=(0, 1))
+        rgb_std = np.std(lip_crop, axis=(0, 1))
+        hsv_std = np.std(hsv, axis=(0, 1))
 
-        all_lab_means.append(lab_mean)
+        # Color histogram (8 bins per channel, RGB)
+        hist_feats = []
+        for c in range(3):
+            hist = cv2.calcHist([lip_crop], [c], None, [8], [0, 256])
+            hist = hist.flatten() / max(hist.sum(), 1e-8)
+            hist_feats.extend(hist)
+
+        features = np.concatenate([lab_mean, rgb_mean, hsv_mean, rgb_std, hsv_std, hist_feats])
+        all_features.append(features)
 
         # Save lip crop thumbnail
         crop_dir = os.path.join(output_dir, "crops")
@@ -111,17 +131,29 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
         samples.append({
             "path": str(img_path),
             "crop_path": crop_path,
-            "lab_mean": lab_mean.tolist(),
+            "features": features.tolist(),
         })
 
-    # K-Means clustering on LAB means (k=3: Pinkish, Brownish, Dark)
+    # K-Means clustering on rich color features (k=3: Pinkish, Brownish, Dark)
+    if not all_features:
+        print("Error: No images with detectable faces/lips. Skipping K-Means.", flush=True)
+        print(f"  Processed {len(samples)} samples, skipped {skipped}", flush=True)
+        return samples
+
     print("\nRunning K-Means clustering...", flush=True)
-    X = np.array(all_lab_means)
+    X_raw = np.array(all_features)
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X_raw)
     kmeans = KMeans(n_clusters=3, random_state=42, n_init="auto").fit(X)
 
     # Sort clusters by L (brightness): brightest = Pinkish, middle = Brownish, darkest = Dark
-    centroids = kmeans.cluster_centers_
-    cluster_order = np.argsort(centroids[:, 0])[::-1]  # descending by L
+    centroids_raw = kmeans.cluster_centers_  # scaled centroids
+    # Find which cluster has highest LAB-L (index 0 in original space)
+    centroids_lab_l = []
+    for c in range(3):
+        mask = kmeans.labels_ == c
+        centroids_lab_l.append(X_raw[mask, 0].mean())  # LAB-L is index 0
+    cluster_order = np.argsort(centroids_lab_l)[::-1]
     cluster_to_label = {cluster_order[0]: "Pinkish", cluster_order[1]: "Brownish", cluster_order[2]: "Dark"}
 
     for i, s in enumerate(samples):
@@ -129,28 +161,31 @@ def process_dataset(input_dir: str, output_dir: str, limit: Optional[int] = None
         s["label"] = cluster_to_label[cluster]
         s["confidence"] = round(0.75 + 0.15 * (1 - kmeans.inertia_ / (3 * X.var())), 2)
 
-    print(f"Cluster centroids (L,a,b):")
+    print(f"Cluster centroids (LAB-L):")
     for c in range(3):
         label = cluster_to_label[c]
-        l, a, b = centroids[c]
-        print(f"  {label:10s}  L={l:.1f}  a={a:.1f}  b={b:.1f}")
+        print(f"  {label:10s}  mean_L={centroids_lab_l[c]:.1f}")
 
-    # Visualize clustering
+    # Visualize clustering (use first 3 features for 2D projection)
     try:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+        from sklearn.decomposition import PCA
         colors_map = {"Pinkish": "#e74c8b", "Brownish": "#8b5e3c", "Dark": "#4a1942"}
         labels_arr = [cluster_to_label[c] for c in kmeans.labels_]
-        fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-        pairs = [(0, 1, "L", "a"), (0, 2, "L", "b"), (1, 2, "a", "b")]
-        for ax, (i, j, xi, yj) in zip(axes, pairs):
-            for cls in ["Pinkish", "Brownish", "Dark"]:
-                mask = [l == cls for l in labels_arr]
-                ax.scatter(X[mask, i], X[mask, j], c=colors_map[cls], label=cls, alpha=0.3, s=2)
-            ax.scatter(centroids[:, i], centroids[:, j], c="black", marker="X", s=100, label="Centroid")
-            ax.set_xlabel(xi), ax.set_ylabel(yj)
-            ax.legend(fontsize=7)
+        # PCA to 2D for visualization
+        pca = PCA(n_components=2, random_state=42)
+        X_2d = pca.fit_transform(X)
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for cls in ["Pinkish", "Brownish", "Dark"]:
+            mask = [l == cls for l in labels_arr]
+            ax.scatter(X_2d[mask, 0], X_2d[mask, 1], c=colors_map[cls], label=cls, alpha=0.3, s=2)
+        centroids_2d = pca.transform(kmeans.cluster_centers_)
+        ax.scatter(centroids_2d[:, 0], centroids_2d[:, 1], c="black", marker="X", s=100, label="Centroid")
+        ax.set_xlabel("PC1"), ax.set_ylabel("PC2")
+        ax.legend()
+        ax.set_title("K-Means Clustering (PCA projection)")
         plt.tight_layout()
         plot_path = os.path.join(output_dir, "clustering.png")
         plt.savefig(plot_path, dpi=150)

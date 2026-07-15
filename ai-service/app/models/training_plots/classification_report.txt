@@ -1,0 +1,9 @@
+              precision    recall  f1-score   support
+
+     Pinkish     0.6667    0.8333    0.7407        12
+    Brownish     0.8947    0.7727    0.8293        22
+        Dark     0.9375    0.9375    0.9375        16
+
+    accuracy                         0.8400        50
+   macro avg     0.8330    0.8479    0.8358        50
+weighted avg     0.8537    0.8400    0.8427        50
