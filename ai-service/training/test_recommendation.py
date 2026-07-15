@@ -10,8 +10,10 @@ import argparse
 import csv
 import json
 import os
+import pickle
 import sys
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -124,23 +126,36 @@ def format_table(results: list, output_dir: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True, help="Folder berisi gambar uji")
+    parser.add_argument("--input", help="Folder berisi gambar uji")
+    parser.add_argument("--metadata", help="Path ke metadata.pkl (merged dataset)")
     parser.add_argument("--output", default="./test_results", help="Folder output")
     parser.add_argument("--limit", type=int, default=30, help="Max gambar yang diproses")
     args = parser.parse_args()
+
+    if not args.input and not args.metadata:
+        parser.error("Harap isi --input atau --metadata")
 
     os.makedirs(args.output, exist_ok=True)
 
     print("Loading classifier model...", flush=True)
     load_classifier()
 
-    image_exts = ("*.jpg", "*.jpeg", "*.png")
-    image_paths = []
-    for ext in image_exts:
-        from pathlib import Path
-        image_paths.extend(sorted(Path(args.input).glob(ext)))
-    if args.limit:
-        image_paths = image_paths[:args.limit]
+    if args.metadata:
+        with open(args.metadata, "rb") as f:
+            samples = pickle.load(f)
+        image_paths = [s["path"] for s in samples]
+        if args.limit:
+            image_paths = image_paths[:args.limit]
+        print(f"Menggunakan metadata: {args.metadata} ({len(image_paths)} gambar)", flush=True)
+    else:
+        image_exts = ("*.jpg", "*.jpeg", "*.png")
+        image_paths = []
+        for ext in image_exts:
+            from pathlib import Path
+            image_paths.extend(sorted(Path(args.input).glob(ext)))
+        if args.limit:
+            image_paths = image_paths[:args.limit]
+        print(f"Menggunakan folder: {args.input} ({len(image_paths)} gambar)", flush=True)
 
     print(f"Memproses {len(image_paths)} gambar...", flush=True)
     results = []
@@ -148,9 +163,9 @@ def main():
         result = process_image(str(path))
         if result:
             results.append(result)
-            print(f"  ✓ {path.name} → {result['lip_type']} (conf={result['confidence']:.2f})", flush=True)
+            print(f"  ✓ {Path(path).name} → {result['lip_type']} (conf={result['confidence']:.2f})", flush=True)
         else:
-            print(f"  ✗ {path.name} → gagal (wajah/bibir tidak terdeteksi)", flush=True)
+            print(f"  ✗ {Path(path).name} → gagal (wajah/bibir tidak terdeteksi)", flush=True)
 
     print(f"\nBerhasil: {len(results)}/{len(image_paths)} gambar", flush=True)
 
