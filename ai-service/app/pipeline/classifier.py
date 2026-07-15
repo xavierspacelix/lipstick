@@ -34,7 +34,7 @@ def _rule_based(image_array: np.ndarray) -> dict:
     if brightness < 0.3:
         label = "Dark"
         confidence = round(0.7 + brightness * 0.5, 2)
-    elif r > 0.45 and g > 0.3 and b > 0.25:
+    elif r > 0.50 and g > 0.25 and b > 0.20 and (r - g) > 0.15:
         label = "Pinkish"
         confidence = round(0.7 + (r - g) * 0.5, 2)
     else:
@@ -56,7 +56,7 @@ def classify_lip_type(cropped_lip_bytes: list[int]) -> dict:
             out = _model(inp)
             predictions = list(out.values())[0].numpy()[0]
             probs = tf.nn.softmax(predictions).numpy()
-            if float(np.max(probs)) > 0.85:
+            if float(np.max(probs)) > 0.70:
                 label_idx = int(np.argmax(probs))
                 return {
                     "label": LIP_TYPE_LABELS[label_idx],
