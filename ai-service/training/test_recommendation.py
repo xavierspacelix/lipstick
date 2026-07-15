@@ -68,6 +68,51 @@ def process_image(image_path: str) -> dict:
     }
 
 
+def save_table_png(rows_418: list, summary: dict, output_dir: str):
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        # Tabel 4.18
+        if rows_418:
+            n = len(rows_418)
+            fig, ax = plt.subplots(figsize=(14, 0.5 * n + 1.5))
+            ax.axis("off")
+            col_labels = ["No", "RGB User", "Tipe", "Rekomendasi", "RGB Lipstik", "Distance", "Similarity"]
+            cell_text = [
+                [r["no"], r["rgb_user"], r["lip_type"], r["rekomendasi"], r["rgb_lipstick"], f"{r['distance']:.2f}", f"{r['similarity']:.1f}%"]
+                for r in rows_418
+            ]
+            table = ax.table(cellText=cell_text, colLabels=col_labels, loc="center")
+            table.auto_set_font_size(False)
+            table.set_fontsize(8)
+            table.scale(1, 1.3)
+            ax.set_title("Tabel 4.18 Hasil Pengujian Hybrid Recommendation System", fontsize=10, fontweight="bold")
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_dir, "tabel_418.png"), dpi=200, bbox_inches="tight")
+            plt.close()
+
+        # Tabel 4.19
+        fig, ax = plt.subplots(figsize=(6, 2.5))
+        ax.axis("off")
+        sum_cells = [[k, v] for k, v in summary.items()]
+        table = ax.table(cellText=sum_cells, colLabels=["Parameter", "Nilai"], loc="center")
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1, 1.5)
+        ax.set_title("Tabel 4.19 Rekapitulasi Similarity", fontsize=10, fontweight="bold")
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "tabel_419.png"), dpi=200, bbox_inches="tight")
+        plt.close()
+
+        print(f"Tabel PNG disimpan ke {output_dir}/tabel_418.png, tabel_419.png")
+    except ImportError:
+        print("matplotlib not installed — skip tabel PNG")
+    except Exception as e:
+        print(f"Warning: tabel PNG gagal: {e}")
+
+
 def format_table(results: list, output_dir: str):
     # Tabel 4.18 — Sample results
     rows_418 = []
@@ -122,6 +167,9 @@ def format_table(results: list, output_dir: str):
         print(f"{k:<35} {v}")
 
     print(f"\nHasil disimpan ke {output_dir}/")
+
+    # Save PNG tables
+    save_table_png(rows_418, summary, output_dir)
 
 
 def main():
