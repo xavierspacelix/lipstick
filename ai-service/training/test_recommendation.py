@@ -127,7 +127,7 @@ def format_table(results: list, output_dir: str):
             rows_418.append({
                 "no": i + 1 if j == 0 else "",
                 "rgb_user": f"({r['rgb']['r']}, {r['rgb']['g']}, {r['rgb']['b']})",
-                "lip_type": r["lip_type"] if j == 0 else '" "',
+                "lip_type": r["lip_type"] if j == 0 else "",
                 "rekomendasi": rec["shade_name"],
                 "rgb_lipstick": f"({rec['rgb']['r']}, {rec['rgb']['g']}, {rec['rgb']['b']})",
                 "distance": rec["distance"],
