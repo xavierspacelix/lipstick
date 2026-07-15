@@ -9,6 +9,7 @@ Usage:
 import argparse
 import csv
 import json
+import io
 import os
 import pickle
 import sys
@@ -17,10 +18,12 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.pipeline.face_detection import detect_face
 from app.pipeline.lip_segmentation import segment_lips
+from app.pipeline.rgb_extraction import extract_rgb
 from app.pipeline.classifier import load_model as load_classifier, classify_lip_type
 from app.pipeline.recommender import get_top3
 
@@ -40,19 +43,21 @@ def process_image(image_path: str) -> dict:
     if image_rgb is None:
         return None
 
-    face_result = detect_face(cv2.imencode(".jpg", cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR))[1].tobytes())
+    pil_img = Image.fromarray(image_rgb)
+    buf = io.BytesIO()
+    pil_img.save(buf, format="JPEG")
+    img_bytes = buf.getvalue()
+
+    face_result = detect_face(img_bytes)
     if not face_result["face_detected"]:
         return None
 
-    lip_result = segment_lips(
-        cv2.imencode(".jpg", cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR))[1].tobytes(),
-        face_result["landmarks"],
-    )
-    if lip_result["status"] != "success":
+    lip_result = segment_lips(img_bytes, face_result["landmarks"])
+    if not lip_result["success"]:
         return None
 
-    rgb = lip_result["mean_rgb"]
-    cropped_bytes = lip_result["cropped_bytes"]
+    rgb = extract_rgb(lip_result["cropped_lip"])
+    cropped_bytes = lip_result["cropped_lip"]
 
     classification = classify_lip_type(list(cropped_bytes))
     lip_type = classification["label"]
