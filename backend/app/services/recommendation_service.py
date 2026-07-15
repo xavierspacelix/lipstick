@@ -308,8 +308,9 @@ def get_top3(lip_type: str, rgb: tuple) -> list[dict]:
         for ls in candidates
     ]
     top3 = sorted(scored, key=lambda x: x["distance"])[:3]
-    min_dist = min(item["distance"] for item in top3)
-    max_dist = max(item["distance"] for item in top3)
+    all_distances = [item["distance"] for item in scored]
+    min_dist = min(all_distances)
+    max_dist = max(all_distances)
     rng = max_dist - min_dist
     floor = 20
     for item in top3:
