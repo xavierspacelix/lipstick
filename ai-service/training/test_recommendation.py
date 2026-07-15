@@ -204,7 +204,6 @@ def main():
         image_exts = ("*.jpg", "*.jpeg", "*.png")
         image_paths = []
         for ext in image_exts:
-            from pathlib import Path
             image_paths.extend(sorted(Path(args.input).glob(ext)))
         if args.limit:
             image_paths = image_paths[:args.limit]
